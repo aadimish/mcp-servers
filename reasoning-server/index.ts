@@ -78,7 +78,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
     const validatedParams = toolParamsSchema.parse(request.params.arguments);
     const query = validatedParams.query;
 
-    console.info(`processing query: ${query}`);
+    console.error(`Processing query: ${query}`);
 
     const response = await client.chat.completions.create({
       model: config.modelName,
@@ -86,7 +86,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
       max_tokens: 8192,
     });
 
-    console.info(`model response: ${query}`);
+    console.error(`Model response: ${query}`);
 
     const fullResponse = response.choices[0].message.content;
     if (!fullResponse) {
