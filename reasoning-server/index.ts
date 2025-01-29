@@ -84,23 +84,29 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
       model: config.modelName,
       messages: [{ role: 'user', content: query }],
       max_tokens: 8192,
+      stream: true,
     });
 
-    console.error(`Model response: ${query}`);
+    let accumulatedText = '';
 
-    const fullResponse = response.choices[0].message.content;
-    if (!fullResponse) {
-      throw new Error('Empty response from model');
+    // for-await-of loop to read streaming chunks
+    for await (const chunk of response) {
+      const partialContent = chunk.choices?.[0]?.delta?.content;
+      if (partialContent) {
+        accumulatedText += partialContent;
+      }
     }
 
-    const thinkMatch = /<think>([\s\S]*?)<\/think>/.exec(fullResponse);
-    const result = thinkMatch ? thinkMatch[1].trim() : fullResponse;
+    console.error(`Model response: ${accumulatedText}`);
+
+    const thinkMatch = /([\s\S]*?)<\/think>/.exec(accumulatedText);
+    const finalResult = thinkMatch ? thinkMatch[1].trim() : accumulatedText;
 
     return {
       content: [
         {
           type: 'text',
-          text: result,
+          text: finalResult,
         },
       ],
     };
