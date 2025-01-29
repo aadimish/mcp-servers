@@ -99,7 +99,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
 
     console.error(`Model response: ${accumulatedText}`);
 
-    const thinkMatch = /([\s\S]*?)<\/think>/.exec(accumulatedText);
+    const thinkMatch = /<think>([\s\S]*?)<\/think>/.exec(accumulatedText);
     const finalResult = thinkMatch ? thinkMatch[1].trim() : accumulatedText;
 
     return {
