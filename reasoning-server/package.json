@@ -1,6 +1,6 @@
 {
   "name": "server-reasoning",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A Model Context Protocol (MCP) implementation providing analytical thinking capabilities through a structured tool interface. Enables complex problem solving, multi-perspective analysis, and step-by-step reasoning through a standardized API.",
   "license": "MIT",
   "author": "Aditya Mishra",
