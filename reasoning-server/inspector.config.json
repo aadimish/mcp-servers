@@ -1,0 +1,11 @@
+{
+  "command": "npx",
+  "args": ["tsx", "server.ts"],
+  "env": {
+    "THINKING_BASE_URL": "http://localhost:8082/v1",
+    "THINKING_API_KEY": "lm-studio",
+    "THINKING_MODEL": "deepseek-r1-distill-llama-8b",
+    "THINKING_LOG_LEVEL": "ERROR"
+  },
+  "cwd": "/Users/adityamishra/Downloads/mcp_servers/thinking_server"
+}
