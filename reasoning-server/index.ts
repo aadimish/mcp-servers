@@ -28,6 +28,7 @@ const config = {
   baseUrl: process.env.REASONING_BASE_URL || 'http://127.0.0.1:8082/v1',
   apiKey: process.env.REASONING_API_KEY || 'lm-studio',
   modelName: process.env.REASONING_MODEL || 'deepseek-r1-distill-llama-8b',
+  max_tokens: parseInt(process.env.REASONING_MAX_TOKENS || '8192', 10),
 };
 
 // Initialize OpenAI client
@@ -83,8 +84,11 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
     const response = await client.chat.completions.create({
       model: config.modelName,
       messages: [{ role: 'user', content: query }],
-      max_tokens: 8192,
+      max_completion_tokens: config.max_tokens,
       stream: true,
+      frequency_penalty: 1.2,
+      temperature: 0.6,
+      top_p: 0.95,
     });
 
     let accumulatedText = '';
