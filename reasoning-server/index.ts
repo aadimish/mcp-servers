@@ -12,9 +12,9 @@ import OpenAI from 'openai';
 // Create server instance
 const server = new Server(
   {
-    name: 'mcp-reasoning-server',
+    name: 'mcp-deep-research-server',
     version: '1.0.0',
-    description: 'Reasoning MCP Server',
+    description: 'Deep Research MCP Server',
   },
   {
     capabilities: {
@@ -25,10 +25,16 @@ const server = new Server(
 
 // Server configuration
 const config = {
-  baseUrl: process.env.REASONING_BASE_URL || 'http://127.0.0.1:8082/v1',
-  apiKey: process.env.REASONING_API_KEY || 'lm-studio',
-  modelName: process.env.REASONING_MODEL || 'deepseek-r1-distill-llama-8b',
-  max_tokens: parseInt(process.env.REASONING_MAX_TOKENS || '8192', 10),
+  baseUrl: process.env.DEEP_RESEARCH_BASE_URL || 'http://127.0.0.1:8082/v1',
+  apiKey: process.env.DEEP_RESEARCH_API_KEY || 'lm-studio',
+  modelName: process.env.DEEP_RESEARCH_MODEL || 'deepseek-r1-distill-llama-8b',
+  maxTokens: parseInt(process.env.DEEP_RESEARCH_MAX_TOKENS || '61440', 10),
+  secondaryBaseUrl:
+    process.env.REASONING_BASE_URL || 'http://127.0.0.1:8082/v1',
+  secondaryApiKey: process.env.REASONING_API_KEY || 'lm-studio',
+  secondaryModelName:
+    process.env.REASONING_MODEL || 'deepseek-r1-distill-llama-8b',
+  secondaryMaxTokens: parseInt(process.env.REASONING_MAX_TOKENS || '65536', 10),
 };
 
 // Initialize OpenAI client
@@ -38,25 +44,54 @@ const client = new OpenAI({
   timeout: 1800000, // 30 minutes in milliseconds
 });
 
+const secondaryClient = new OpenAI({
+  baseURL: config.secondaryBaseUrl,
+  apiKey: config.secondaryApiKey,
+  timeout: 1800000, // 30 minutes in milliseconds
+});
+
 // Set up request handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: 'think',
+        name: 'deep-research',
         description:
-          'Use this tool to get another analytical perspective on complex problems.\n' +
+          'Use this tool to conduct thorough, comprehensive research on any topic.\n' +
           'This tool helps in:\n' +
-          '- Breaking down complex problems\n' +
-          '- Considering different angles and approaches\n' +
-          '- Getting step-by-step reasoning\n' +
-          '- Obtaining alternative viewpoints',
+          '- Performing in-depth investigation on complex topics\n' +
+          '- Retrieving detailed, nuanced information from multiple sources\n' +
+          '- Accessing specialized knowledge and the latest developments\n' +
+          '- Analyzing information with academic-level depth and rigor',
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'The problem or question to analyze',
+              description:
+                'The research question or topic to investigate thoroughly',
+            },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'reasoning',
+        description:
+          'Use this tool to access an advanced LLM with enhanced reasoning capabilities.\n' +
+          'This tool excels at:\n' +
+          '- Solving complex logical problems and puzzles\n' +
+          '- Providing step-by-step analysis of multi-stage problems\n' +
+          '- Evaluating complex scenarios with nuanced decision-making\n' +
+          '- Generating well-structured arguments with formal reasoning\n' +
+          '- Breaking down complex concepts into coherent explanatory chains',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description:
+                'The question, problem, or scenario requiring detailed logical analysis and reasoning',
             },
           },
           required: ['query'],
@@ -68,7 +103,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 server.setRequestHandler(CallToolRequestSchema, async request => {
   try {
-    if (request.params.name !== 'think') {
+    if (!['deep-research', 'reasoning'].includes(request.params.name)) {
       throw new Error('Unknown tool');
     }
 
@@ -76,20 +111,29 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
       query: z.string(),
     });
 
-    const validatedParams = toolParamsSchema.parse(request.params.arguments);
-    const query = validatedParams.query;
-
+    const { query } = toolParamsSchema.parse(request.params.arguments);
     console.error(`Processing query: ${query}`);
 
-    const response = await client.chat.completions.create({
-      model: config.modelName,
-      messages: [{ role: 'user', content: query }],
-      max_completion_tokens: config.max_tokens,
-      stream: true,
-      frequency_penalty: 1.2,
-      temperature: 0.6,
-      top_p: 0.95,
-    });
+    let response;
+    if (request.params.name === 'deep-research') {
+      response = await client.chat.completions.create({
+        model: config.modelName,
+        messages: [{ role: 'user', content: query }],
+        max_completion_tokens: config.maxTokens,
+        stream: true,
+        frequency_penalty: 1.2,
+        temperature: 0.6,
+        top_p: 0.95,
+      });
+    } else {
+      response = await secondaryClient.chat.completions.create({
+        model: config.secondaryModelName,
+        messages: [{ role: 'user', content: query }],
+        max_completion_tokens: config.secondaryMaxTokens,
+        stream: true,
+        temperature: 0.6,
+      });
+    }
 
     let accumulatedText = '';
 
@@ -103,16 +147,16 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
 
     console.error(`Model response: ${accumulatedText}`);
 
-    const thinkMatch = /<think>([\s\S]*?)<\/think>/.exec(accumulatedText);
-    const finalResult = thinkMatch
-      ? thinkMatch[1].trim()
-      : accumulatedText.trim();
+    // const thinkMatch = /<think>([\s\S]*?)<\/think>/.exec(accumulatedText);
+    // const finalResult = thinkMatch
+    // ? thinkMatch[1].trim()
+    // : accumulatedText.trim();
 
     return {
       content: [
         {
           type: 'text',
-          text: finalResult,
+          text: accumulatedText,
         },
       ],
     };
@@ -136,7 +180,7 @@ async function runServer() {
   try {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error('MCP Reasoning Server running on stdio');
+    console.error('MCP Deep Research Server running on stdio');
   } catch (error) {
     console.error('Fatal error running server:', error);
     process.exit(1);
